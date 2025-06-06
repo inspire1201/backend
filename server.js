@@ -8,7 +8,7 @@ const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;  
 
 // Cloudinary config
 cloudinary.config({
@@ -39,6 +39,10 @@ const db = mysql.createConnection({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
+  waitForConnections: true,
+  connectionLimit:10,
+  queueLimit:0,
+
 });
 
 db.connect((err) => {
