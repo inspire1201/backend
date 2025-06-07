@@ -92,10 +92,14 @@ app.post('/upload', upload.single('image'), async (req, res) => {
 
 app.get('/entries', (req, res) => {
   db.query('SELECT * FROM entries', (err, results) => {
-    if (err) return res.status(500).json({ error: 'DB fetch failed.' });
+    if (err) {
+      console.error('Error fetching entries:', err); // Add this
+      return res.status(500).json({ error: 'DB fetch failed.', details: err });
+    }
     res.json(results);
   });
 });
+
 
 
 app.delete('/entries/:id', (req, res) => {
