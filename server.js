@@ -8,7 +8,7 @@ const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;  
+const PORT = process.env.PORT || 3000;
 
 // Cloudinary config
 cloudinary.config({
@@ -17,7 +17,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-
+// Multer config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const tmpPath = 'uploads/';
@@ -30,30 +30,33 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-const db = mysql.createConnection({
+// ✅ FIX: Use connection pool instead of single connection
+const db = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
   waitForConnections: true,
-  connectionLimit:10,
-  queueLimit:0,
-
+  connectionLimit: 10,
+  queueLimit: 0,
 });
 
-db.connect((err) => {
+// Check DB connection on startup
+db.getConnection((err, connection) => {
   if (err) {
-    console.error(' MySQL connection error:', err);
-    return;
+    console.error('❌ MySQL connection error:', err);
+  } else {
+    console.log('✅ Connected to MySQL');
+    connection.release();
   }
-  console.log(' Connected to MySQL');
 });
 
-
+// Upload route
 app.post('/upload', upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No image uploaded.' });
 
@@ -69,45 +72,43 @@ app.post('/upload', upload.single('image'), async (req, res) => {
     const imageUrl = result.secure_url;
     const imageName = req.file.originalname;
 
- 
-    fs.unlinkSync(req.file.path);
+    fs.unlinkSync(req.file.path); // Delete local temp file
 
     db.query(
       'INSERT INTO entries (name, email, image_name, image_url) VALUES (?, ?, ?, ?)',
       [name, email, imageName, imageUrl],
       (err, results) => {
         if (err) {
-          console.error(' MySQL insert error:', err);
+          console.error('❌ MySQL insert error:', err);
           return res.status(500).json({ error: 'DB insert failed.' });
         }
-        res.json({ message: 'Entry saved', id: results.insertId });
+        res.json({ message: '✅ Entry saved', id: results.insertId });
       }
     );
   } catch (err) {
-    console.error(' Cloudinary error:', err);
+    console.error('❌ Cloudinary error:', err);
     res.status(500).json({ error: 'Cloudinary upload failed.' });
   }
 });
 
-
+// Fetch entries
 app.get('/entries', (req, res) => {
   db.query('SELECT * FROM entries', (err, results) => {
     if (err) {
-      console.error('Error fetching entries:', err); // Add this
+      console.error('❌ Error fetching entries:', err);
       return res.status(500).json({ error: 'DB fetch failed.', details: err });
     }
     res.json(results);
   });
 });
 
-
-
+// Delete entry
 app.delete('/entries/:id', (req, res) => {
   const { id } = req.params;
   db.query('DELETE FROM entries WHERE id = ?', [id], (err, results) => {
     if (err) return res.status(500).json({ error: 'DB delete failed.' });
-    res.json({ message: ' Entry deleted' });
+    res.json({ message: '✅ Entry deleted' });
   });
 });
 
-app.listen(PORT, () => console.log(` Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
